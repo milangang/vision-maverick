@@ -1,10 +1,24 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Users, Building2, Code2, BrainCircuit, Wrench, Zap } from 'lucide-react'
+import { Users, Building2, Code2, BrainCircuit, Wrench, Zap, LucideIcon } from 'lucide-react'
+
+// Define proper TypeScript interfaces
+interface AudienceItem {
+  icon: LucideIcon;
+  label: string;
+}
+
+interface Audience {
+  title: string;
+  icon: LucideIcon;
+  color: string;
+  features?: string[];
+  items?: AudienceItem[];
+}
 
 const Audience = () => {
-  const audiences = [
+  const audiences: Audience[] = [
     {
       title: 'Built for Builders',
       icon: Wrench,
@@ -54,8 +68,8 @@ const Audience = () => {
                   </h3>
                 </div>
 
-                {/* Content */}
-                {audience.title === 'Built for Builders' ? (
+                {/* Content - Type Safe */}
+                {audience.features && (
                   <ul className="space-y-4">
                     {audience.features.map((feature, idx) => (
                       <motion.li
@@ -73,7 +87,9 @@ const Audience = () => {
                       </motion.li>
                     ))}
                   </ul>
-                ) : (
+                )}
+
+                {audience.items && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {audience.items.map((item, idx) => (
                       <motion.div
