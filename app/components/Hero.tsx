@@ -1,9 +1,26 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowRight, Cpu, Zap, Brain, TrendingUp, BarChart3, LineChart, Sparkles } from 'lucide-react'
 
 const Hero = () => {
+  const [windowHeight, setWindowHeight] = useState(800) // Default height
+  
+  useEffect(() => {
+    // Client-side pe hi window access karo
+    if (typeof window !== 'undefined') {
+      setWindowHeight(window.innerHeight)
+      
+      const handleResize = () => {
+        setWindowHeight(window.innerHeight)
+      }
+      
+      window.addEventListener('resize', handleResize)
+      return () => window.removeEventListener('resize', handleResize)
+    }
+  }, [])
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -26,13 +43,6 @@ const Hero = () => {
       },
     },
   }
-
-  // Free trading chart images from Unsplash (no copyright)
-  const tradingImages = [
-    'https://images.unsplash.com/photo-1642790553124-4c56d74c5a65?q=80&w=2070&auto=format&fit=crop', // Trading charts
-    'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=2070&auto=format&fit=crop', // Stock market
-    'https://images.unsplash.com/photo-1613243555978-636c48dc653c?q=80&w=2070&auto=format&fit=crop', // Data visualization
-  ]
 
   const tradingCharts = [
     { Icon: TrendingUp, delay: 0, position: 'top-1/4 left-[10%]', size: 'h-16 w-16' },
@@ -57,11 +67,15 @@ const Hero = () => {
             transition={{ duration: 1.5 }}
             className="absolute inset-0"
           >
+            <div className="w-full h-full bg-gradient-to-br from-cyan-900/20 via-purple-900/10 to-emerald-900/20" />
             <img
               src="https://images.unsplash.com/photo-1642790553124-4c56d74c5a65?q=80&w=2070"
               alt="Trading charts"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover opacity-20"
               loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
             />
           </motion.div>
 
@@ -184,7 +198,7 @@ const Hero = () => {
         ))}
       </div>
 
-      {/* Animated Numbers Floating */}
+      {/* Animated Numbers Floating - FIXED WINDOW ISSUE */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         {[...Array(30)].map((_, i) => (
           <motion.div
@@ -195,7 +209,7 @@ const Hero = () => {
               fontSize: `${8 + Math.random() * 8}px`,
             }}
             animate={{
-              y: [-100, window.innerHeight + 100],
+              y: [-100, windowHeight + 100], // Fixed: using state instead of window.innerHeight
               x: [0, Math.random() * 50 - 25],
             }}
             transition={{
