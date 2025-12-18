@@ -3,9 +3,27 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowRight, Cpu, Zap, Brain, TrendingUp, BarChart3, LineChart, Sparkles } from 'lucide-react'
+import { fetchMarketSummary, type MarketItem } from '@/lib/api'
 
 const Hero = () => {
   const [windowHeight, setWindowHeight] = useState(800) // Default height
+
+  const [marketItems, setMarketItems] = useState<MarketItem[]>([])
+  const [marketLoading, setMarketLoading] = useState(true)
+  const [marketError, setMarketError] = useState<string | null>(null)
+
+  const NEUTRAL_THRESHOLD_PCT = 0.05
+
+  const getTrend = (pct: number) => {
+    if (Math.abs(pct) < NEUTRAL_THRESHOLD_PCT) return 'neutral'
+    return pct > 0 ? 'up' : 'down'
+  }
+
+  const formatPrice = (value: number) =>
+    new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value)
   
   useEffect(() => {
     // Client-side pe hi window access karo
@@ -19,6 +37,28 @@ const Hero = () => {
       window.addEventListener('resize', handleResize)
       return () => window.removeEventListener('resize', handleResize)
     }
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    const load = async () => {
+      try {
+        setMarketLoading(true)
+        setMarketError(null)
+
+        const data = await fetchMarketSummary({ signal: controller.signal })
+        setMarketItems(Array.isArray(data.items) ? data.items : [])
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return
+        setMarketError('Unable to load market feed')
+      } finally {
+        setMarketLoading(false)
+      }
+    }
+
+    load()
+    return () => controller.abort()
   }, [])
 
   const containerVariants = {
@@ -50,6 +90,79 @@ const Hero = () => {
     { Icon: LineChart, delay: 0.6, position: 'bottom-1/3 left-[20%]', size: 'h-20 w-20' },
     { Icon: Sparkles, delay: 0.9, position: 'bottom-1/4 right-[10%]', size: 'h-12 w-12' },
   ]
+
+  const performanceStats = (() => {
+    if (marketLoading) {
+      return [...Array(4)].map(() => ({
+        value: '—',
+        label: 'Loading…',
+        desc: 'Fetching market feed',
+        descClass: 'text-gray-400',
+        color: 'from-cyan-500 to-blue-500',
+      }))
+    }
+
+    if (marketError) {
+      return [...Array(4)].map(() => ({
+        value: '—',
+        label: 'Market',
+        desc: 'Feed unavailable',
+        descClass: 'text-red-400',
+        color: 'from-red-500 to-rose-500',
+      }))
+    }
+
+    const items = marketItems.slice(0, 4)
+
+    if (items.length === 0) {
+      return [...Array(4)].map(() => ({
+        value: '—',
+        label: '—',
+        desc: 'No market data',
+        descClass: 'text-gray-400',
+        color: 'from-cyan-500 to-blue-500',
+      }))
+    }
+
+    const filled: Array<MarketItem | null> = [...items]
+    while (filled.length < 4) filled.push(null)
+
+    return filled.slice(0, 4).map((item) => {
+      if (!item) {
+        return {
+          value: '—',
+          label: '—',
+          desc: '—',
+          descClass: 'text-gray-400',
+          color: 'from-cyan-500 to-blue-500',
+        }
+      }
+
+      const trend = getTrend(item.change_24h_pct)
+      const arrow = trend === 'up' ? '▲' : trend === 'down' ? '▼' : '•'
+      const descClass =
+        trend === 'up'
+          ? 'text-emerald-400'
+          : trend === 'down'
+            ? 'text-red-400'
+            : 'text-gray-400'
+
+      const color =
+        trend === 'up'
+          ? 'from-emerald-500 to-lime-500'
+          : trend === 'down'
+            ? 'from-red-500 to-rose-500'
+            : 'from-cyan-500 to-blue-500'
+
+      return {
+        value: `$${formatPrice(item.price)}`,
+        label: item.symbol,
+        desc: `${arrow} ${Math.abs(item.change_24h_pct).toFixed(2)}% (24h)`,
+        descClass,
+        color,
+      }
+    })
+  })()
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
@@ -334,34 +447,9 @@ const Hero = () => {
             transition={{ delay: 1.8 }}
             className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12"
           >
-            {[
-              { 
-                value: '99.9%', 
-                label: 'System Uptime', 
-                desc: 'Guaranteed reliability',
-                color: 'from-cyan-500 to-blue-500'
-              },
-              { 
-                value: '< 1ms', 
-                label: 'Execution Latency', 
-                desc: 'Real-time trading',
-                color: 'from-teal-500 to-green-500'
-              },
-              { 
-                value: '24/7', 
-                label: 'AI Monitoring', 
-                desc: 'Continuous analysis',
-                color: 'from-emerald-500 to-lime-500'
-              },
-              { 
-                value: 'Enterprise', 
-                label: 'Security Grade', 
-                desc: 'Bank-level protection',
-                color: 'from-purple-500 to-pink-500'
-              },
-            ].map((stat, index) => (
+            {performanceStats.map((stat, index) => (
               <motion.div
-                key={stat.label}
+                key={`${stat.label}-${index}`}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 2 + index * 0.1 }}
@@ -372,7 +460,7 @@ const Hero = () => {
                   {stat.value}
                 </div>
                 <div className="font-semibold text-gray-200 mb-1">{stat.label}</div>
-                <div className="text-sm text-gray-400">{stat.desc}</div>
+                <div className={`text-sm ${stat.descClass}`}>{stat.desc}</div>
               </motion.div>
             ))}
           </motion.div>
@@ -390,9 +478,47 @@ const Hero = () => {
                 <span className="text-sm font-medium text-green-400">LIVE</span>
               </div>
               <div className="text-sm text-gray-300">
-                Processing <span className="text-primary font-semibold">25,000+</span> trades/sec • 
-                Analyzing <span className="text-primary font-semibold">150TB</span> market data • 
-                <span className="text-emerald-400 ml-2"> ▲ 2.4%</span> today
+                {marketLoading && (
+                  <span>
+                    Loading <span className="text-primary font-semibold">market</span> feed…
+                  </span>
+                )}
+
+                {!marketLoading && marketError && (
+                  <span className="text-red-400">{marketError}</span>
+                )}
+
+                {!marketLoading && !marketError && marketItems.length === 0 && (
+                  <span className="text-gray-400">No market data available</span>
+                )}
+
+                {!marketLoading && !marketError && marketItems.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    {marketItems.slice(0, 4).map((item, idx) => {
+                      const trend = getTrend(item.change_24h_pct)
+                      const arrow = trend === 'up' ? '▲' : trend === 'down' ? '▼' : '•'
+                      const changeClass =
+                        trend === 'up'
+                          ? 'text-emerald-400'
+                          : trend === 'down'
+                            ? 'text-red-400'
+                            : 'text-gray-400'
+
+                      return (
+                        <span key={item.symbol} className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-200">{item.symbol}</span>
+                          <span className="text-primary font-semibold">${formatPrice(item.price)}</span>
+                          <span className={changeClass}>
+                            {arrow} {Math.abs(item.change_24h_pct).toFixed(2)}%
+                          </span>
+                          {idx < Math.min(marketItems.length, 4) - 1 ? (
+                            <span className="text-gray-500">•</span>
+                          ) : null}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
